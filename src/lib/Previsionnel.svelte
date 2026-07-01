@@ -24,11 +24,9 @@
 		}, {})
 	);
 
-	const months = $derived.by(() => {
-		const mmonths = Array.from(new Set(props?.data?.cells?.Periode));
-		mmonths.sort();
-		return mmonths.map(convertToMonths);
-	});
+	const months = $state(
+		[...Array(24).keys()].map((v) => new Date(2026, v + 1, 1).toISOString().slice(0, 7))
+	);
 
 	const rowData = $derived.by(() => {
 		const dataByNames = {};

@@ -32,12 +32,11 @@
 	});
 
 	async function afterNewCell(rowId, monthValue, value) {
-		console.log({ rowId, monthValue, value });
 		const payload = {
 			fields: {
 				Intervention_validee: rowId,
 				Nb_jours: value,
-				Periode: monthValue
+				Periode: monthValue + '-01'
 			}
 		};
 		await window.grist.getTable(cellTable).create(payload);
