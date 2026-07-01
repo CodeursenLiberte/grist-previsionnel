@@ -31,11 +31,23 @@
 		);
 	});
 
-	async function afterChange(id, changes, source) {
+	async function afterNewCell(rowId, monthValue, value) {
+		console.log({ rowId, monthValue, value });
+		const payload = {
+			fields: {
+				Intervention_validee: rowId,
+				Nb_jours: value,
+				Periode: monthValue
+			}
+		};
+		await window.grist.getTable(cellTable).create(payload);
+	}
+
+	async function afterCellChange(id, value) {
 		const payload = {
 			id,
 			fields: {
-				Nb_jours: changes[0][3]
+				Nb_jours: value
 			}
 		};
 		await window.grist.getTable(cellTable).update(payload);
@@ -46,4 +58,4 @@
 	}
 </script>
 
-<Previsionnel {data} {afterChange} {afterSelectionEnd} />
+<Previsionnel {data} {afterCellChange} {afterNewCell} {afterSelectionEnd} />

@@ -32,14 +32,15 @@
 
 	const rowData = $derived.by(() => {
 		const dataByNames = {};
-		props?.data?.rows?.records?.forEach((r) => {
-			const personKey = r.Nom_court;
+		props?.data?.rows?.records?.forEach((record) => {
+			const personKey = record.Nom_court;
 			dataByNames[personKey] = dataByNames[personKey] || {
 				Personne: personKey,
+				record,
 				values: {}
 			};
 
-			const cellIds = r[props.data.rows.cellColumn];
+			const cellIds = record[props.data.rows.cellColumn];
 			cellIds?.forEach((id) => {
 				const idx = cellMap[id];
 				const period = props.data.cells.Periode[idx];
@@ -104,26 +105,60 @@
 		const input = getCellData(row, column);
 		props?.afterSelectionEnd?.(input);
 	}
+	const validChangeSources = ['edit', 'CopyPaste.paste', 'Autofill.fill', 'UndoRedo.undo'];
+
+	function beforeChange(changes, source) {
+		if (validChangeSources.indexOf(source) < 0) {
+			console.info('Invalid/unsupported source. Ignoring.');
+			console.info({ changes, source });
+			return false;
+		}
+		if (!changes) {
+			console.info('no changes.');
+			console.info({ source });
+			return false;
+		}
+		if (changes.length !== 1) {
+			console.info('too many changes.');
+			console.info({ changes, source });
+			return false;
+		}
+		return true;
+	}
 
 	function afterChange(changes, source) {
-		if (source !== 'edit') {
-			console.info('not an edit.');
+		if (validChangeSources.indexOf(source) < 0) {
+			console.info('not an edit. Details:');
+			console.info({ changes, source });
+			return;
+		}
+		if (!changes) {
+			console.info('no changes.');
+			console.info({ source });
 			return;
 		}
 		if (changes.length !== 1) {
 			console.info('too many changes.');
+			console.info({ changes, source });
 			return;
 		}
 		const row = changes[0][0];
 		const column = changes[0][1];
 		const inputIdx = getCellData(row, column);
+		if (!inputIdx) {
+			const rowItem = rowData[row];
+			const monthValue = months[column - 1];
+			const value = changes[0][3];
+			props?.afterNewCell?.(rowItem.record.id, monthValue, value);
+			return;
+		}
 		if (inputIdx.length !== 1) {
 			console.info('too many inputs.');
 			return;
 		}
-		const input = props.data.cells.id[inputIdx[0]];
-		console.log({ ii: inputIdx[0], input });
-		props?.afterChange?.(input, changes, source);
+		const cellId = props.data.cells.id[inputIdx[0]];
+		const newValue = changes[0][3];
+		props?.afterCellChange?.(cellId, newValue);
 	}
 
 	let gridElement;
@@ -173,12 +208,15 @@
 	onMount(() => {
 		hot = new Handsontable(gridElement, {
 			rowHeaders: false,
-			height: 'auto',
+			height: '95vh',
 			colHeaders: (i) => colHeaders[i],
 			columns: (i) => columns[i],
 			fixedColumnsStart: 1,
-			afterSelectionEnd: afterSelectionEnd,
+			fixedColumnsEnd: 1,
+			fixedRowsBottom: 1,
+			beforeChange,
 			afterChange: afterChange,
+			afterSelectionEnd: afterSelectionEnd,
 			copyPaste: true,
 			cells,
 			licenseKey: 'non-commercial-and-evaluation' // for non-commercial use only
