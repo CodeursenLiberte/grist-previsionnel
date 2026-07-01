@@ -10,7 +10,7 @@
 
 	let props = $props();
 
-	const formatMonthHeader = (m) => {
+	const convertToMonths = (m) => {
 		const c = new Date(parseInt(m) * 1000);
 		return c.toISOString().slice(0, 7);
 	};
@@ -27,7 +27,7 @@
 	const months = $derived.by(() => {
 		const mmonths = Array.from(new Set(props?.data?.cells?.Periode));
 		mmonths.sort();
-		return mmonths;
+		return mmonths.map(convertToMonths);
 	});
 
 	const rowData = $derived.by(() => {
@@ -44,9 +44,10 @@
 			cellIds?.forEach((id) => {
 				const idx = cellMap[id];
 				const period = props.data.cells.Periode[idx];
+				const month = convertToMonths(period);
 
-				dataByNames[personKey].values[period] = dataByNames[personKey].values[period] || [];
-				dataByNames[personKey].values[period].push(idx);
+				dataByNames[personKey].values[month] = dataByNames[personKey].values[month] || [];
+				dataByNames[personKey].values[month].push(idx);
 			});
 		});
 		const names = Object.keys(dataByNames);
@@ -58,7 +59,7 @@
 		const data = rowData.map((person) => {
 			return [
 				person.Personne,
-				...months.map((m, i) => {
+				...months.map((m) => {
 					return person.values[m]
 						?.map((idx) => props.data.cells[COL_NB_JOURS][idx])
 						.reduce(accSum, 0);
@@ -164,12 +165,7 @@
 	let gridElement;
 	let hot;
 
-	const colHeaders = $derived([
-		'Intervention',
-		...(months.map(formatMonthHeader) || []),
-		'',
-		'Total'
-	]);
+	const colHeaders = $derived(['Intervention', ...(months || []), '', 'Total']);
 	const columns = $derived([
 		{
 			type: 'text',
