@@ -10,27 +10,50 @@
 
 	let props = $props();
 
-	const convertToMonths = (m) => {
-		const c = new Date(parseInt(m) * 1000);
+	interface Record {
+		Nom_court: string;
+		Consommations: number[];
+	}
+	interface Rows {
+		records: Record[];
+		cellColumn: string;
+	}
+	let rows: Rows = $derived(props?.data?.rows);
+	let cells: Cells = $derived(props?.data?.cells);
+
+	const convertToMonths = (m: number) => {
+		const c = new Date(m * 1000);
 		return c.toISOString().slice(0, 7);
 	};
-	const accSum = (a, v) => a + (v || 0);
-	const amountDisplay = (v) => v.toLocaleString('FR-fr', { style: 'currency', currency: 'EUR' });
+	const accSum = (a: number, v: number) => a + (v || 0);
+	const amountDisplay = (v: number) =>
+		v.toLocaleString('FR-fr', { style: 'currency', currency: 'EUR' });
 
-	let cellMap = $derived(
-		props?.data?.cells?.id?.reduce((a, v, i) => {
+	interface CellMap {
+		[key: number]: number;
+	}
+	let cellMap: CellMap = $derived(
+		cells?.id?.reduce((a, v: number, i: number) => {
 			a[v] = i;
 			return a;
-		}, {})
+		}, {} as CellMap)
 	);
 
 	const months = $state(
 		[...Array(24).keys()].map((v) => new Date(2026, v + 1, 1).toISOString().slice(0, 7))
 	);
 
-	const rowData = $derived.by(() => {
-		const dataByNames = {};
-		props?.data?.rows?.records?.forEach((record) => {
+	interface PeriodData {
+		[key: string]: number[];
+	}
+	interface RowData {
+		Personne: string;
+		record: any;
+		values: PeriodData;
+	}
+	const rowData: RowData[] = $derived.by(() => {
+		const dataByNames: { [key: string]: RowData } = {};
+		rows?.records?.forEach((record) => {
 			const personKey = record.Nom_court;
 			dataByNames[personKey] = dataByNames[personKey] || {
 				Personne: personKey,
@@ -38,10 +61,10 @@
 				values: {}
 			};
 
-			const cellIds = record[props.data.rows.cellColumn];
+			const cellIds = record[rows.cellColumn] as number[];
 			cellIds?.forEach((id) => {
 				const idx = cellMap[id];
-				const period = props.data.cells.Periode[idx];
+				const period = cells.Periode[idx];
 				const month = convertToMonths(period);
 
 				dataByNames[personKey].values[month] = dataByNames[personKey].values[month] || [];
@@ -58,9 +81,7 @@
 			return [
 				person.Personne,
 				...months.map((m) => {
-					return person.values[m]
-						?.map((idx) => props.data.cells[COL_NB_JOURS][idx])
-						.reduce(accSum, 0);
+					return person.values[m]?.map((idx) => cells[COL_NB_JOURS][idx]).reduce(accSum, 0);
 				})
 			];
 		});
@@ -70,16 +91,16 @@
 			const v = months
 				.map((m) => {
 					const person = rowData[i];
-					return person.values[m]?.map((idx) => props.data.cells[COL_TOTAL][idx]).reduce(accSum, 0);
+					return person.values[m]?.map((idx) => cells[COL_TOTAL][idx]).reduce(accSum, 0);
 				})
 				.reduce(accSum, 0);
 			r.push(amountDisplay(v));
 		});
 
-		const sumData = months.map((m) => {
+		const sumData: Handsontable.CellValue[] = months.map((m) => {
 			const total = rowData
 				.map((r) => {
-					return r.values[m]?.map((idx) => props.data.cells[COL_TOTAL][idx]).reduce(accSum, 0);
+					return r.values[m]?.map((idx) => cells[COL_TOTAL][idx]).reduce(accSum, 0);
 				})
 				.reduce(accSum, 0);
 			return total;
@@ -92,12 +113,12 @@
 		return [...data, [], ['Total', ...sumData.map(amountDisplay)]];
 	});
 
-	const getCellData = (row, column) => {
+	const getCellData = (row: number, column: any) => {
 		const details = rowData[row];
 		return details?.values?.[months[column - 1]];
 	};
 
-	function afterSelectionEnd(row, column) {
+	function afterSelectionEnd(row: number, column: number) {
 		if (row < 0) {
 			return;
 		}
@@ -106,7 +127,10 @@
 	}
 	const validChangeSources = ['edit', 'CopyPaste.paste', 'Autofill.fill', 'UndoRedo.undo'];
 
-	function beforeChange(changes, source) {
+	function beforeChange(
+		changes: (Handsontable.CellChange | null)[],
+		source: Handsontable.ChangeSource
+	) {
 		if (validChangeSources.indexOf(source) < 0) {
 			console.info('Invalid/unsupported source. Ignoring.');
 			console.info({ changes, source });
@@ -125,7 +149,10 @@
 		return true;
 	}
 
-	function afterChange(changes, source) {
+	function afterChange(
+		changes: Handsontable.CellChange[] | null,
+		source: Handsontable.ChangeSource
+	) {
 		if (validChangeSources.indexOf(source) < 0) {
 			console.info('not an edit. Details:');
 			console.info({ changes, source });
@@ -155,13 +182,13 @@
 			console.info('too many inputs.');
 			return;
 		}
-		const cellId = props.data.cells.id[inputIdx[0]];
+		const cellId = cells.id[inputIdx[0]];
 		const newValue = changes[0][3];
 		props?.afterCellChange?.(cellId, newValue);
 	}
 
-	let gridElement;
-	let hot;
+	let gridElement: HTMLElement;
+	let hot: Handsontable;
 
 	const colHeaders = $derived(['Intervention', ...(months || []), '', 'Total']);
 	const columns = $derived([
@@ -177,8 +204,8 @@
 		})
 	]);
 
-	function cells(row, column) {
-		const cellProperties = {};
+	function cellsMeta(row: number, column: number): Handsontable.CellMeta {
+		const cellProperties: Handsontable.CellMeta = {};
 		if (row >= rowData.length || column > months.length) {
 			cellProperties.readOnly = true;
 		} else if (column > 0) {
@@ -189,7 +216,7 @@
 					classNames.push('italic');
 					cellProperties.readOnly = true;
 				}
-				if (input.filter((c) => c.Statut === 'Consommé').length === input.length) {
+				if (input.filter((idx) => cells.Statut[idx] === 'Consommé').length === input.length) {
 					classNames.push('bold');
 					cellProperties.readOnly = true;
 				}
@@ -206,13 +233,12 @@
 			colHeaders: (i) => colHeaders[i],
 			columns: (i) => columns[i],
 			fixedColumnsStart: 1,
-			fixedColumnsEnd: 1,
 			fixedRowsBottom: 1,
 			beforeChange,
-			afterChange: afterChange,
-			afterSelectionEnd: afterSelectionEnd,
+			afterChange,
+			afterSelectionEnd,
 			copyPaste: true,
-			cells,
+			cells: cellsMeta,
 			licenseKey: 'non-commercial-and-evaluation' // for non-commercial use only
 		});
 	});

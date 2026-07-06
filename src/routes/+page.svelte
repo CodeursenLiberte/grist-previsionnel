@@ -8,19 +8,24 @@
 			allowSelectBy: true,
 			requiredAccess: 'full'
 		});
+
 		window.grist.onRecords(
-			async (records) => {
+			async (records: any[]) => {
 				const cellColumn = 'Consommations';
 				const tableId = await window.grist.getTable().getTableId();
 
-				const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
+				const tokenInfo = await window.grist.docApi.getAccessToken({ readOnly: true });
 				const columnsUrl = `${tokenInfo.baseUrl}/tables/${tableId}/columns?hidden=true?auth=${tokenInfo.token}`;
 				const columnsResponse = await fetch(columnsUrl);
-				const { columns } = await columnsResponse.json();
+				const { columns }: { columns: GristColumn[] } = await columnsResponse.json();
 
 				const cellColumnMeta = columns.find((v) => v.id == cellColumn);
+				if (!cellColumnMeta) {
+					console.error(`${cellColumn} missing. Aborting.`);
+					return;
+				}
 				cellTable = cellColumnMeta.fields.type.split(':')[1];
-				const cells = await grist.docApi.fetchTable(cellTable);
+				const cells: Cells = await window.grist.docApi.fetchTable(cellTable);
 
 				data = { rows: { records, columns, cellColumn }, cells };
 			},
@@ -31,7 +36,7 @@
 		);
 	});
 
-	async function afterNewCell(rowId, monthValue, value) {
+	async function afterNewCell(rowId: number, monthValue: string, value: any) {
 		const payload = {
 			fields: {
 				Intervention_validee: rowId,
@@ -42,7 +47,7 @@
 		await window.grist.getTable(cellTable).create(payload);
 	}
 
-	async function afterCellChange(id, value) {
+	async function afterCellChange(id: number, value: any) {
 		const payload = {
 			id,
 			fields: {
@@ -52,7 +57,7 @@
 		await window.grist.getTable(cellTable).update(payload);
 	}
 
-	function afterSelectionEnd(input) {
+	function afterSelectionEnd(input: any) {
 		console.log({ input });
 	}
 </script>

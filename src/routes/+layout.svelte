@@ -6,11 +6,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<script
-		src="https://grist.numerique.gouv.fr/grist-plugin-api.js"
-		strategy="beforeInteractive"
-		async=""
-	></script>
+	<script src="https://grist.numerique.gouv.fr/grist-plugin-api.js"></script>
 </svelte:head>
 
 {@render children()}
