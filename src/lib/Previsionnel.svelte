@@ -40,7 +40,7 @@
 	);
 
 	const months = $state(
-		[...Array(24).keys()].map((v) => new Date(2026, v + 1, 1).toISOString().slice(0, 7))
+		[...Array(24+3).keys()].map((v) => new Date(2026, v + 1, 1).toISOString().slice(0, 7))
 	);
 
 	interface PeriodData {
